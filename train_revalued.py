@@ -11,13 +11,13 @@ batch_size = 256
 hidden_size = 512
 critic_lr = 1e-4
 gamma = 0.99
-bin_size = 3
+bin_size = [2, 3, 4, 5, 6, 7]  # this can be an integer for fixed bin sizes in each dim, or a list of desired bin sizes.
 n_steps = 3
 task_name = "walker"
 task = "walk"
 tau = 0.005
 max_env_interactions = 10_000_000
-update_ratio = 1
+update_ratio = 5
 num_updates = 1
 ensemble_size = 10
 
@@ -25,26 +25,27 @@ np.random.seed(SEED)
 random.seed(SEED)
 torch.manual_seed(SEED)
 
-envs = make_env(task_name, task, bin_size)
+env = make_env(task_name, task, bin_size)
 test_env = make_env(task_name, task, bin_size)
 state_dim = test_env.observation_space.shape[0]
-num_actions = test_env.num_subaction_spaces
-dqn = REValueD(state_dim=state_dim, num_heads=num_actions, num_actions=bin_size, hidden_size=hidden_size,
-               batch_size=batch_size, gamma=gamma, tau=tau, lr=critic_lr, task_name=task_name, task=task,  n_steps=n_steps,
-               seed=SEED, memory_size=100_000, device=device, update_type='REDQ')
+action_space = env.action_space
+dqn = REValueD(state_dim=state_dim, action_space=action_space, hidden_size=hidden_size,
+               batch_size=batch_size, gamma=gamma, tau=tau, lr=critic_lr, task_name=task_name, task=task, n_steps=n_steps,
+               seed=SEED, memory_size=100_000, device=device, ensemble_size=ensemble_size, update_type='REDQ')
+dqn.make_critic()
 
 ep_count = 0
 memory = []
 while len(memory) < 10000:
     done = False
-    state, _ = envs.reset()
+    state, _ = env.reset()
     score = 0
     ep_count += 1
     n_step_buffer = []
     while not done:
 
-        action = envs.action_space.sample()
-        next_state, reward, terminated, truncated, _ = envs.step(action)
+        action = env.action_space.sample()
+        next_state, reward, terminated, truncated, _ = env.step(action)
         done = terminated or truncated
 
         n_step_buffer.append((state, action, reward))
@@ -71,12 +72,12 @@ memory = []
 while env_interactions < max_env_interactions:
     episode += 1
     done = False
-    state, _ = envs.reset()
+    state, _ = env.reset()
     score = 0
     n_step_buffer = []
     while not done:
         action = dqn.act(state)
-        next_state, reward, terminated, truncated, _ = envs.step(action)
+        next_state, reward, terminated, truncated, _ = env.step(action)
         env_interactions += 1
         done = terminated or truncated
 
@@ -98,10 +99,10 @@ while env_interactions < max_env_interactions:
             memory = []
             for i in range(num_updates):
                 dqn.experience_replay()
-                if dqn.grad_steps % 1000 == 0:
-                    test_scores = []
-                    for j in range(5):
-                        test_scores.append(run_test(dqn, test_env, SEED + j * offset))
-                    print(f"Env steps {env_interactions}. Grad steps: {dqn.grad_steps}. Score: {np.mean(test_scores)}")
+            if env_interactions % 5000 == 0:
+                test_scores = []
+                for j in range(5):
+                    test_scores.append(run_test(dqn, test_env, SEED + j * offset))
+                print(f"Env steps {env_interactions}. Grad steps: {dqn.grad_steps}. Score: {np.mean(test_scores)}")
         state = next_state
         score += reward

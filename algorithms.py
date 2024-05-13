@@ -2,15 +2,13 @@ from buffer_utils import ReplayBuffer
 import copy
 from networks import DecoupledQNetwork, EnsembleDecoupledQNetwork
 import numpy as np
-import pickle
 import torch
 from torch.nn import HuberLoss
 from torch.nn.utils import clip_grad_norm_
-import wandb
 
 
 class DecQN:
-    def __init__(self, state_dim, num_heads, num_actions, hidden_size, batch_size=512, gamma=0.99, tau=0.005,
+    def __init__(self, state_dim, action_space, hidden_size, batch_size=512, gamma=0.99, tau=0.005,
                  epsilon_min=0.05, lr=1e-3, task_name=None, task=None,  n_steps=1, seed=None, memory_size=100_000,
                  device='cuda' if torch.cuda.is_available() else 'cpu'):
         self._device = device
@@ -18,11 +16,13 @@ class DecQN:
         self._critic_lr = lr
         self._epsilon_min = epsilon_min
         self._state_dim = state_dim
-        self._num_heads = num_heads
-        self._num_actions = num_actions
-        self.critic = DecoupledQNetwork(self._state_dim, hidden_size, self._num_actions, self._num_heads).to(self._device)
-        self.optimiser = torch.optim.Adam(self.critic.parameters(), lr=lr)
-        self.critic_target = copy.deepcopy(self.critic).to(self._device)
+        self._action_space = action_space
+        self._num_heads = len(action_space)
+        self.critic = None
+        self.critic_target = None
+        self.optimiser = None
+        self._mask = None
+        self._max_action_dim = None
         self._batch_size = batch_size
         self._gamma = gamma
         self._n_steps = n_steps
@@ -39,36 +39,37 @@ class DecQN:
         self.test_scores = []
         self._alg_name = "DecQN"
 
-        self.memory = ReplayBuffer(memory_size, state_dim, num_heads, batch_size, device)
+        self.memory = ReplayBuffer(memory_size, state_dim, self._num_heads, batch_size, device)
         self.loss_fn = HuberLoss()
-
-    def greedy_act(self, state):
-        state = torch.FloatTensor(state).view(1, -1).to(self._device)
-        with torch.no_grad():
-            values = self.critic(state).squeeze(dim=0)
-        action = values.argmax(dim=1).cpu().numpy()
-        return action
 
     def act(self, state):
         if np.random.uniform() < self.epsilon:
-            action = np.random.randint(low=0, high=self._num_actions, size=self._num_heads)
             self.epsilon = max(self.epsilon * self._exploration_decay, self._epsilon_min)
+            return self._action_space.sample()
         else:
             state = torch.FloatTensor(state).view(1, -1).to(self._device)
             with torch.no_grad():
-                values = self.critic(state).squeeze(dim=0)
-            action = values.argmax(dim=1).cpu().numpy()
+                values = self.critic.forward(state) + self._mask
+            action = values.argmax(dim=-1).cpu().flatten().numpy()
+            return action
+
+    def greedy_act(self, state):
+        state = torch.FloatTensor(state).unsqueeze(dim=0).to(self._device)
+        with torch.no_grad():
+            values = self.critic.forward(state) + self._mask
+        action = values.argmax(dim=-1).cpu().numpy().flatten()
         return action
 
     def experience_replay(self):
         states, actions, rewards, next_states, dones = self.get_batch()
 
-        utility_values = self.critic.forward(states)
+        utility_values = self.critic.forward(states) + self._mask
         selected_utility_values = utility_values.gather(-1, actions.unsqueeze(dim=-1)).squeeze(dim=-1)
         q_vals = selected_utility_values.mean(dim=-1, keepdim=True)
-        with torch.no_grad():
-            idx = self.critic.forward(next_states).argmax(dim=-1)
-            target_utilities = self.critic_target.forward(next_states).gather(-1, idx.unsqueeze(dim=-1)).squeeze(dim=-1)
+        with ((torch.no_grad())):
+            idx = (self.critic.forward(next_states) + self._mask).argmax(dim=-1)
+            target_utilities = (self.critic_target.forward(next_states) + self._mask
+                                ).gather(-1, idx.unsqueeze(dim=-1)).squeeze(dim=-1)
             target_q_vals = target_utilities.mean(dim=-1, keepdim=True)
             targets = (rewards + (self._gamma ** self._n_steps) * (1 - dones) * target_q_vals)
 
@@ -76,7 +77,6 @@ class DecQN:
         loss = self.loss_fn(q_vals, targets)
         loss.backward()
         clip_grad_norm_(self.critic.parameters(), 40)
-        self._store_critic_grads()
         self.optimiser.step()
 
         self.grad_steps += 1
@@ -113,17 +113,35 @@ class DecQN:
         for state, action, reward, next_state, done in memory:
             self.memory.push(state, action, reward, next_state, done)
 
+    def make_mask(self):
+        mask = []
+        for subaction_space in self._action_space:
+            sub_mask = []
+            for j in range(self._max_action_dim):
+                if j < subaction_space.n:
+                    sub_mask.append(0)
+                else:
+                    sub_mask.append(-np.inf)
+            mask.append(sub_mask)
+        return torch.FloatTensor([mask]).to(self._device)
+
+    def make_critic(self):
+        self._max_action_dim = 0
+        for a in self._action_space:
+            self._max_action_dim = max(self._max_action_dim, a.n)
+        self._mask = self.make_mask()
+
+        self.critic = DecoupledQNetwork(self._state_dim, self._hidden_size, self._max_action_dim,
+                                        self._action_space.shape[0]).to(self._device)
+        self.optimiser = torch.optim.Adam(self.critic.parameters(), lr=self._critic_lr)
+        self.critic_target = copy.deepcopy(self.critic).to(self._device)
+
 
 class REValueD(DecQN):
     def __init__(self, update_type='Mean', ensemble_size=10, **kwargs):
         super(REValueD, self).__init__(**kwargs)
         self.alg_name = 'REValueD'
         self.update_type = update_type
-
-        self.critic = EnsembleDecoupledQNetwork(self._state_dim, self._hidden_size, self._num_actions,
-                                                self._num_heads, ensemble_size).to(self._device)
-        self.optimiser = torch.optim.Adam(self.critic.parameters(), lr=self._critic_lr)
-        self.critic_target = copy.deepcopy(self.critic).to(self._device)
         self._ensemble_size = ensemble_size
 
     def get_batch(self):
@@ -138,7 +156,7 @@ class REValueD(DecQN):
 
     def experience_replay(self, use_cql=False, alpha=1):
         states, actions, rewards, next_states, dones = self.get_batch()
-        utilities = self.critic.forward(states)
+        utilities = self.critic.forward(states) + self._mask
         selected_utilities = utilities.gather(-1, actions.unsqueeze(dim=-1)).squeeze(dim=-1)
         q_vals = selected_utilities.mean(dim=-1)
         with torch.no_grad():
@@ -161,16 +179,18 @@ class REValueD(DecQN):
         :param next_states: next states used to bootstrap from
         :return: targets: target q-values
         """
-        with torch.no_grad():
+        with (torch.no_grad()):
             if self.update_type == "DecQN":
-                idx = self.critic.forward(next_states).argmax(dim=-1)
-                targets = self.critic_target.forward(next_states).gather(-1, idx.unsqueeze(dim=-1)).squeeze(dim=-1).mean(dim=-1)
+                idx = (self.critic.forward(next_states) + self._mask).argmax(dim=-1)
+                targets = (self.critic_target.forward(next_states) + self._mask
+                           ).gather(-1, idx.unsqueeze(dim=-1)).squeeze(dim=-1).mean(dim=-1)
             elif self.update_type == "REDQ":
-                targets = self.critic_target.forward(next_states).max(dim=-1)[0].mean(dim=-1)
+                targets = (self.critic_target.forward(next_states) + self._mask).max(dim=-1)[0].mean(dim=-1)
                 idx = np.random.choice(range(self._ensemble_size), size=2, replace=False)
                 targets = targets[:, idx].min(dim=-1, keepdim=True)[0].repeat(1, self._ensemble_size)
             elif self.update_type == "Mean":
-                targets = self.critic_target.forward(next_states).mean(dim=1).max(dim=-1)[0].mean(dim=-1, keepdim=True).repeat(1, self._ensemble_size)
+                targets = (self.critic_target.forward(next_states) + self._mask
+                           ).mean(dim=1).max(dim=-1)[0].mean(dim=-1, keepdim=True).repeat(1, self._ensemble_size)
             else:
                 raise TypeError('update type not supported')
         return targets
@@ -178,17 +198,28 @@ class REValueD(DecQN):
     def greedy_act(self, state):
         state = torch.FloatTensor(state).view(1, -1).to(self._device)
         with torch.no_grad():
-            values = self.critic.forward(state)  # 1 x ensemble_size x num_heads x num_actions
+            values = self.critic.forward(state) + self._mask
         action = values.mean(dim=1).argmax(dim=-1).cpu().flatten().numpy()
         return action
 
     def act(self, state):
         if np.random.uniform() < self.epsilon:
-            action = np.random.randint(low=0, high=self._num_actions, size=self._num_heads)
+            action = self._action_space.sample()
             self.epsilon = max(self.epsilon * self._exploration_decay, self._epsilon_min)
         else:
             state = torch.FloatTensor(state).view(1, -1).to(self._device)
             with torch.no_grad():
-                values = self.critic.forward(state)
+                values = self.critic.forward(state) + self._mask
             action = values[0][np.random.randint(self._ensemble_size)].argmax(dim=-1).cpu().flatten().numpy()
         return action
+
+    def make_critic(self):
+        self._max_action_dim = 0
+        for a in self._action_space:
+            self._max_action_dim = max(self._max_action_dim, a.n)
+        self._mask = self.make_mask()
+
+        self.critic = EnsembleDecoupledQNetwork(self._state_dim, self._hidden_size, self._max_action_dim,
+                                                self._action_space.shape[0], self._ensemble_size).to(self._device)
+        self.optimiser = torch.optim.Adam(self.critic.parameters(), lr=self._critic_lr)
+        self.critic_target = copy.deepcopy(self.critic).to(self._device)

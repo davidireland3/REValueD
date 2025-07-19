@@ -143,41 +143,48 @@ class Trainer:
         while burn_in_steps < self.burn_in_steps:
             state, _ = self.env.reset()
             done = False
-            transitions = []
-
+            n_step_buffer = []
             while not done:
                 action = self.env.action_space.sample()
                 next_state, reward, terminated, truncated, _ = self.env.step(action)
                 done = terminated or truncated
 
-                transitions.append((state, action, reward))
+                n_step_buffer.append((state, action, reward))
+                if len(n_step_buffer) == self.n_steps:
+                    state_0, action_0, _ = n_step_buffer[0]
+                    disc_returns = np.sum([r * self.gamma ** count for count, (_, _, r) in enumerate(n_step_buffer)], axis=0)
+                    self.replay_buffer.push(state_0, action_0, disc_returns, next_state, terminated)
+                    n_step_buffer.pop(0)
+                if terminated:
+                    while n_step_buffer:
+                        state_0, action_0, _ = n_step_buffer[0]
+                        disc_returns = np.sum([r * self.gamma ** count for count, (_, _, r) in enumerate(n_step_buffer)], axis=0)
+                        self.replay_buffer.push(state_0, action_0, disc_returns, next_state, terminated)
+                        n_step_buffer.pop(0)
                 state = next_state
                 burn_in_steps += 1
-
                 if burn_in_steps >= self.burn_in_steps:
                     break
-
-            # Process transitions
-            if len(transitions) >= self.n_steps:
-                processed = compute_n_step_returns(transitions, self.gamma, self.n_steps)
-                for s, a, r, ns, d in processed:
-                    self.replay_buffer.push(s, a, r, ns, d)
 
         logger.info("Burn-in phase completed")
 
     def _evaluate(self) -> None:
         """Run evaluation episodes."""
-        mean_score, std_score = run_evaluation(
-            self.algorithm,
-            self.eval_env,
-            self.eval_episodes,
-            self.seed + 2000
-        )
+        scores = []
+        for i in range(self.eval_episodes):
+            score = run_evaluation(
+                self.algorithm,
+                self.eval_env,
+                self.seed + 2000 * i
+            )
+            scores.append(score)
 
+        mean_score = np.mean(scores)
+        std_score = np.std(scores)
         self.metrics.update(eval_score=mean_score)
 
         # Log results
-        train_metrics = self.metrics.get_all_averages()
+        train_metrics = self.metrics.get_all_current()
         logger.info(
             f"Steps: {self.env_steps} | "
             f"Episodes: {self.episodes} | "

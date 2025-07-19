@@ -50,37 +50,27 @@ def make_env(
 def run_evaluation(
         algorithm: Any,
         env: gym.Env,
-        num_episodes: int = 5,
         seed: Optional[int] = None
-) -> Tuple[float, float]:
+) -> float:
     """Run evaluation episodes.
 
     Args:
         algorithm: Trained algorithm
         env: Environment to evaluate in
-        num_episodes: Number of evaluation episodes
         seed: Random seed for evaluation
 
     Returns:
         Tuple of (mean_score, std_score)
     """
-    scores = []
-
-    for episode in range(num_episodes):
-        episode_seed = seed + episode if seed is not None else None
-        state, _ = env.reset(seed=episode_seed)
-        done = False
-        score = 0.0
-
-        while not done:
-            action = algorithm.greedy_act(state)
-            state, reward, terminated, truncated, _ = env.step(action)
-            done = terminated or truncated
-            score += reward
-
-        scores.append(score)
-
-    return np.mean(scores), np.std(scores)
+    state, _ = env.reset(seed=seed)
+    done = False
+    score = 0.0
+    while not done:
+        action = algorithm.greedy_act(state)
+        state, reward, terminated, truncated, _ = env.step(action)
+        done = terminated or truncated
+        score += reward
+    return score
 
 
 def compute_n_step_returns(

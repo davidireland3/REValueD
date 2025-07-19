@@ -1,6 +1,6 @@
 """Decoupled Q-Network (DecQN) implementation."""
 import copy
-from typing import Dict, Optional, Tuple
+from typing import Dict
 
 import numpy as np
 import torch

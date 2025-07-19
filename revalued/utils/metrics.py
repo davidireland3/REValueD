@@ -64,6 +64,14 @@ class MetricTracker:
         """
         return {key: self.get_average(key) for key in self.metrics}
 
+    def get_all_current(self) -> Dict[str, float]:
+        """Get all current values.
+
+        Returns:
+            Dictionary of metric names and most recent values
+        """
+        return {key: self.get_current(key) for key in self.metrics}
+
     def get_history(self, key: str) -> List[float]:
         """Get full history of metric.
 

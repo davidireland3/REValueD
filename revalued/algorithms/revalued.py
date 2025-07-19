@@ -1,4 +1,4 @@
-"""REValueD: Randomised Ensemble Value Decomposition."""
+"""REValueD: Regularised Ensemble Value Decomposition."""
 import copy
 from typing import Dict, Literal
 
@@ -13,7 +13,6 @@ class REValueD(DecQN):
     """REValueD algorithm for improved exploration and stability.
 
     This algorithm extends DecQN with an ensemble of Q-networks to:
-    - Improve exploration through randomised value functions
     - Reduce overestimation bias through ensemble averaging
     - Support multiple update strategies (Mean, REDQ, DecQN)
     """

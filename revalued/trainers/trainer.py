@@ -87,8 +87,8 @@ class Trainer:
         self._burn_in()
 
         # Main training loop
-
         while self.env_steps < self.max_env_steps:
+            self.episodes += 1
             done = False
             state, _ = self.env.reset()
             score = 0
@@ -128,8 +128,9 @@ class Trainer:
                 if self.env_steps % self.save_frequency == 0:
                     self._save_checkpoint()
 
+                state = next_state
+
             self.metrics.update(episode_reward=score)
-            self.episodes += 1
 
         logger.info("Training completed!")
         self._save_checkpoint(final=True)

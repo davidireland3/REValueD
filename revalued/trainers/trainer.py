@@ -1,6 +1,6 @@
 """Main trainer class for RL algorithms."""
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Tuple
 
 import numpy as np
 from loguru import logger
@@ -102,16 +102,10 @@ class Trainer:
 
                 n_step_buffer.append((state, action, reward))
                 if len(n_step_buffer) == self.n_steps:
-                    state_0, action_0, _ = n_step_buffer[0]
-                    disc_returns = np.sum([r * self.gamma ** count for count, (_, _, r) in enumerate(n_step_buffer)], axis=0)
-                    self.replay_buffer.push(state_0, action_0, disc_returns, next_state, terminated)
-                    n_step_buffer.pop(0)
+                    self.process_n_step_transitions(n_step_buffer, next_state, terminated)
                 if terminated:
                     while n_step_buffer:
-                        state_0, action_0, _ = n_step_buffer[0]
-                        disc_returns = np.sum([r * self.gamma ** count for count, (_, _, r) in enumerate(n_step_buffer)], axis=0)
-                        self.replay_buffer.push(state_0, action_0, disc_returns, next_state, True)
-                        n_step_buffer.pop(0)
+                        self.process_n_step_transitions(n_step_buffer, next_state, True)
 
                 # Update algorithm
                 if self.env_steps % self.update_ratio == 0:
@@ -135,6 +129,21 @@ class Trainer:
         logger.info("Training completed!")
         self._save_checkpoint(final=True)
 
+    def process_n_step_transitions(self, n_step_buffer: List[Tuple[np.ndarray, np.ndarray, float]],
+                                   next_state: np.ndarray, terminated: bool) -> None:
+        """
+        Process n-step transitions and push to replay buffer.
+
+        Args:
+            n_step_buffer: Buffer containing n-step transitions (state, action, reward)
+            next_state: Next state after the last action
+            terminated: Whether the episode has terminated
+        """
+        state_0, action_0, _ = n_step_buffer[0]
+        disc_returns = np.sum([r * self.gamma ** count for count, (_, _, r) in enumerate(n_step_buffer)], axis=0)
+        self.replay_buffer.push(state_0, action_0, disc_returns, next_state, terminated)
+        n_step_buffer.pop(0)
+
     def _burn_in(self) -> None:
         """Fill replay buffer with random transitions."""
         logger.info(f"Starting burn-in phase ({self.burn_in_steps} steps)")
@@ -152,16 +161,10 @@ class Trainer:
 
                 n_step_buffer.append((state, action, reward))
                 if len(n_step_buffer) == self.n_steps:
-                    state_0, action_0, _ = n_step_buffer[0]
-                    disc_returns = np.sum([r * self.gamma ** count for count, (_, _, r) in enumerate(n_step_buffer)], axis=0)
-                    self.replay_buffer.push(state_0, action_0, disc_returns, next_state, terminated)
-                    n_step_buffer.pop(0)
+                    self.process_n_step_transitions(n_step_buffer, next_state, terminated)
                 if terminated:
                     while n_step_buffer:
-                        state_0, action_0, _ = n_step_buffer[0]
-                        disc_returns = np.sum([r * self.gamma ** count for count, (_, _, r) in enumerate(n_step_buffer)], axis=0)
-                        self.replay_buffer.push(state_0, action_0, disc_returns, next_state, terminated)
-                        n_step_buffer.pop(0)
+                        self.process_n_step_transitions(n_step_buffer, next_state, terminated)
                 state = next_state
                 burn_in_steps += 1
                 if burn_in_steps >= self.burn_in_steps:

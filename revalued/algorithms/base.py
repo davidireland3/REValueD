@@ -28,6 +28,7 @@ class BaseAlgorithm(ABC):
             tau: Union[float, int] = 0.005,
             learning_rate: float = 1e-3,
             device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
+            **kwargs
     ):
         """Initialise base algorithm.
 
@@ -40,6 +41,7 @@ class BaseAlgorithm(ABC):
             tau: Target network update rate (soft if 0<tau<1, hard if int)
             learning_rate: Learning rate for optimiser
             device: Device to run on ('cuda' or 'cpu')
+            **kwargs: Additional arguments for specific algorithms
         """
         self.state_dim = state_dim
         self.action_space = action_space

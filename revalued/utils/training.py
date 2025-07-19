@@ -6,7 +6,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-from dmc_datasets import load_dmc_dataset
+from dmc_datasets.environment_utils import make_env as dmc_make_env
 
 
 def set_seeds(seed: int) -> None:
@@ -39,12 +39,7 @@ def make_env(
     Returns:
         Gymnasium environment
     """
-    env = load_dmc_dataset(
-        domain_name=domain,
-        task_name=task,
-        bin_size=bin_size,
-        factorised=factorised
-    )
+    env = dmc_make_env(domain, task, bin_size, factorised)
 
     if seed is not None:
         env.reset(seed=seed)

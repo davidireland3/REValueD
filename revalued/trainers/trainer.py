@@ -87,37 +87,49 @@ class Trainer:
         self._burn_in()
 
         # Main training loop
-        episode_transitions = []
 
         while self.env_steps < self.max_env_steps:
-            # Collect episode
-            transitions = self._collect_episode()
-            episode_transitions.extend(transitions)
+            done = False
+            state, _ = self.env.reset()
+            score = 0
+            n_step_buffer = []
+            while not done:
+                action = self.algorithm.act(state)
+                next_state, reward, terminated, truncated, _ = self.env.step(action)
+                score += reward
+                self.env_steps += 1
+                done = terminated or truncated
 
-            # Process n-step returns and add to buffer
-            if len(episode_transitions) >= self.n_steps:
-                processed = compute_n_step_returns(
-                    episode_transitions[-len(transitions):],
-                    self.gamma,
-                    self.n_steps
-                )
-                for state, action, reward, next_state, done in processed:
-                    self.replay_buffer.push(state, action, reward, next_state, done)
+                n_step_buffer.append((state, action, reward))
+                if len(n_step_buffer) == self.n_steps:
+                    state_0, action_0, _ = n_step_buffer[0]
+                    disc_returns = np.sum([r * self.gamma ** count for count, (_, _, r) in enumerate(n_step_buffer)], axis=0)
+                    self.replay_buffer.push(state_0, action_0, disc_returns, next_state, terminated)
+                    n_step_buffer.pop(0)
+                if terminated:
+                    while n_step_buffer:
+                        state_0, action_0, _ = n_step_buffer[0]
+                        disc_returns = np.sum([r * self.gamma ** count for count, (_, _, r) in enumerate(n_step_buffer)], axis=0)
+                        self.replay_buffer.push(state_0, action_0, disc_returns, next_state, True)
+                        n_step_buffer.pop(0)
 
-            # Update algorithm
-            if self.env_steps % self.update_ratio == 0:
-                for _ in range(self.num_updates):
-                    batch = self.replay_buffer.sample()
-                    update_metrics = self.algorithm.update(*batch)
-                    self.metrics.update(**update_metrics)
+                # Update algorithm
+                if self.env_steps % self.update_ratio == 0:
+                    for _ in range(self.num_updates):
+                        batch = self.replay_buffer.sample()
+                        update_metrics = self.algorithm.update(*batch)
+                        self.metrics.update(**update_metrics)
 
-            # Evaluation
-            if self.env_steps % self.eval_frequency == 0:
-                self._evaluate()
+                # Evaluation
+                if self.env_steps % self.eval_frequency == 0:
+                    self._evaluate()
 
-            # Save checkpoint
-            if self.env_steps % self.save_frequency == 0:
-                self._save_checkpoint()
+                # Save checkpoint
+                if self.env_steps % self.save_frequency == 0:
+                    self._save_checkpoint()
+
+            self.metrics.update(episode_reward=score)
+            self.episodes += 1
 
         logger.info("Training completed!")
         self._save_checkpoint(final=True)
@@ -152,32 +164,6 @@ class Trainer:
                     self.replay_buffer.push(s, a, r, ns, d)
 
         logger.info("Burn-in phase completed")
-
-    def _collect_episode(self) -> List[Tuple[np.ndarray, np.ndarray, float]]:
-        """Collect one episode of experience.
-
-        Returns:
-            List of (state, action, reward) transitions
-        """
-        state, _ = self.env.reset()
-        done = False
-        transitions = []
-        episode_reward = 0.0
-
-        while not done:
-            action = self.algorithm.act(state)
-            next_state, reward, terminated, truncated, _ = self.env.step(action)
-            done = terminated or truncated
-
-            transitions.append((state, action, reward))
-            state = next_state
-            episode_reward += reward
-            self.env_steps += 1
-
-        self.episodes += 1
-        self.metrics.update(episode_reward=episode_reward)
-
-        return transitions
 
     def _evaluate(self) -> None:
         """Run evaluation episodes."""

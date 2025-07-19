@@ -12,7 +12,7 @@ algorithm:
   name: "DecQN"
   hidden_size: 512
   batch_size: 512
-  learning_rate: 1e-4
+  learning_rate: 0.0001
   gamma: 0.99
   tau: 0.01  # Faster target updates
   epsilon_start: 1.0
@@ -20,7 +20,7 @@ algorithm:
   epsilon_decay: 0.999
   n_steps: 5  # Longer n-step for sparse rewards
   grad_clip: 40.0
-  device: "cuda"
+  device: "cpu"
 
 training:
   max_env_steps: 1000000  # Longer training

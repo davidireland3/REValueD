@@ -11,7 +11,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from revalued.algorithms import DecQN, REValueD
 from revalued.trainers import Trainer
-from revalued.utils import set_seeds
+from revalued.utils import set_seeds, make_env
 
 
 def load_config(config_path: Path) -> dict:
@@ -87,7 +87,6 @@ def main():
     logger.info(f"Save directory: {save_dir}")
 
     # Create environment to get dimensions
-    from revalued.utils import make_env
     env = make_env(
         config['environment']['domain'],
         config['environment']['task'],

@@ -10,7 +10,7 @@ setup(
     name="revalued",
     version="0.1.0",
     author="David Ireland",
-    author_email="david.ireland@warwick.ac.uk",  # Update this
+    author_email="david.ireland@warwick.ac.uk",
     description="REValueD: Randomised Ensemble Value Decomposition for reinforcement learning",
     long_description=long_description,
     long_description_content_type="text/markdown",

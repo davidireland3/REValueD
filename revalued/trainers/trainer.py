@@ -185,7 +185,7 @@ class Trainer:
         self.metrics.update(eval_score=mean_score)
 
         # Log results
-        train_metrics = self.metrics.get_all_current()
+        train_metrics = self.metrics.get_all_averages()
         logger.info(
             f"Steps: {self.env_steps} | "
             f"Episodes: {self.episodes} | "

@@ -60,7 +60,7 @@ def run_evaluation(
         seed: Random seed for evaluation
 
     Returns:
-        Tuple of (mean_score, std_score)
+        Score of the evaluation episode
     """
     state, _ = env.reset(seed=seed)
     done = False

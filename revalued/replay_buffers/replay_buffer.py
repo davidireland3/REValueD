@@ -40,7 +40,7 @@ class ReplayBuffer(BaseReplayBuffer):
         # Pre-allocate tensors for efficiency
         self.states = torch.zeros(
             size=(capacity, state_dim),
-            dtype=torch.float32,
+            dtype=torch.float,
             device=device
         )
         self.actions = torch.zeros(
@@ -50,17 +50,17 @@ class ReplayBuffer(BaseReplayBuffer):
         )
         self.rewards = torch.zeros(
             size=(capacity, 1),
-            dtype=torch.float32,
+            dtype=torch.float,
             device=device
         )
         self.next_states = torch.zeros(
             size=(capacity, state_dim),
-            dtype=torch.float32,
+            dtype=torch.float,
             device=device
         )
         self.dones = torch.zeros(
             size=(capacity, 1),
-            dtype=torch.float32,
+            dtype=torch.long,
             device=device
         )
 

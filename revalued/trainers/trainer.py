@@ -1,13 +1,13 @@
 """Main trainer class for RL algorithms."""
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional
 
 import numpy as np
 from loguru import logger
 
 from ..algorithms.base import BaseAlgorithm
 from ..replay_buffers import ReplayBuffer
-from ..utils import MetricTracker, set_seeds, make_env, run_evaluation, compute_n_step_returns
+from ..utils import MetricTracker, set_seeds, make_env, run_evaluation
 
 
 class Trainer:

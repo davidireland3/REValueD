@@ -6,10 +6,6 @@ import numpy as np
 
 from loguru import logger
 
-import sys
-
-sys.path.append(str(Path(__file__).parent.parent))
-
 from revalued.algorithms import DecQN, REValueD
 from revalued.utils import set_seeds, make_env
 

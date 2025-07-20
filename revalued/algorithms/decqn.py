@@ -1,6 +1,7 @@
 """Decoupled Q-Network (DecQN) implementation."""
 import copy
-from typing import Dict
+from pathlib import Path
+from typing import Dict, Union
 
 import numpy as np
 import torch
@@ -195,3 +196,24 @@ class DecQN(BaseAlgorithm):
                     sub_mask.append(-np.inf)
             mask.append(sub_mask)
         return torch.FloatTensor([mask]).to(self.device)
+
+    def load(self, path: Union[str, Path], infer_architecture: bool = True) -> None:
+        """Load model parameters.
+
+        Args:
+            path: Path to load model from
+            infer_architecture: If True, infer network architecture from checkpoint
+        """
+        checkpoint = torch.load(path, map_location=self.device)
+
+        if infer_architecture:
+            # Infer architecture from the critic's state dict
+            critic_state = checkpoint['critic']
+
+            # Extract hidden_dim from first layer weight shape
+            first_layer_key = 'input_layer.weight'
+            self.hidden_size = critic_state[first_layer_key].shape[0]
+
+        # Build networks if they don't exist
+        self.build_networks()
+        super().load(path)

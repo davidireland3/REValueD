@@ -1,0 +1,38 @@
+# Base configuration template
+# Copy and modify for specific experiments
+
+experiment:
+  name: "experiment_name"
+  seed: 42
+
+environment:
+  domain: "walker"  # DMC domain
+  task: "walk"      # DMC task
+  bin_size: 3       # Discretisation bins per dimension
+  factorised: true  # Use factorised action space
+
+algorithm:
+  name: "DecQN"     # Algorithm: DecQN or REValueD
+  hidden_size: 512
+  batch_size: 256
+  learning_rate: 1e-4
+  gamma: 0.99
+  tau: 0.005
+  epsilon_start: 1.0
+  epsilon_min: 0.05
+  epsilon_decay: 0.999
+  n_steps: 3
+  grad_clip: 40.0
+  device: "cuda"
+
+training:
+  max_env_steps: 500000
+  update_ratio: 5        # Environment steps per gradient update
+  num_updates: 1         # Gradient updates per update_ratio steps
+  eval_frequency: 25000  # Steps between evaluations
+  eval_episodes: 5       # Episodes per evaluation
+  save_frequency: 50000  # Steps between checkpoints
+
+replay_buffer:
+  capacity: 500000
+  burn_in_steps: 10000

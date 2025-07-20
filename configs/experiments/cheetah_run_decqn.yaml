@@ -1,0 +1,35 @@
+experiment:
+  name: "cheetah_run_decqn"
+  seed: 42
+
+environment:
+  domain: "cheetah"
+  task: "run"
+  bin_size: 3
+  factorised: true
+
+algorithm:
+  name: "DecQN"
+  hidden_size: 512
+  batch_size: 512
+  learning_rate: 0.0001
+  gamma: 0.99
+  tau: 0.01  # Faster target updates
+  epsilon_start: 1.0
+  epsilon_min: 0.05
+  epsilon_decay: 0.999
+  n_steps: 5  # Longer n-step for sparse rewards
+  grad_clip: 40.0
+  device: "cpu"
+
+training:
+  max_env_steps: 1000000  # Longer training
+  update_ratio: 4
+  num_updates: 2  # More updates per step
+  eval_frequency: 25000
+  eval_episodes: 10
+  save_frequency: 100000
+
+replay_buffer:
+  capacity: 1000000
+  burn_in_steps: 10000

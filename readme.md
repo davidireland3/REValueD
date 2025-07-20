@@ -40,21 +40,21 @@ REValueD is designed for environments with high-dimensional discrete action spac
 ```
 revalued/
 ├── algorithms/          # RL algorithm implementations
-│   ├── base.py         # Abstract base class for algorithms
-│   ├── decqn.py        # Decoupled Q-Network implementation
-│   └── revalued.py     # REValueD algorithm
-├── networks/           # Neural network architectures
-│   ├── base.py         # Base network classes
-│   ├── layers.py       # Custom layers (vectorised, residual)
-│   └── q_networks.py   # Q-network implementations
-├── replay_buffers/     # Experience replay implementations
-│   ├── base.py         # Abstract base replay buffer
+│   ├── base.py          # Abstract base class for algorithms
+│   ├── decqn.py         # Decoupled Q-Network implementation
+│   └── revalued.py      # REValueD algorithm
+├── networks/            # Neural network architectures
+│   ├── base.py          # Base network classes
+│   ├── layers.py        # Custom layers (vectorised, residual)
+│   └── q_networks.py    # Q-network implementations
+├── replay_buffers/      # Experience replay implementations
+│   ├── base.py          # Abstract base replay buffer
 │   └── replay_buffer.py # Standard replay buffer
-├── training/           # Training framework
-│   └── trainer.py      # Main training loop and evaluation
-└── utils/             # Utilities and helper functions
-    ├── metrics.py      # Metrics tracking and aggregation
-    └── training.py     # Training utilities and environment setup
+├── training/            # Training framework
+│   └── trainer.py       # Main training loop and evaluation
+└── utils/               # Utilities and helper functions
+    ├── metrics.py       # Metrics tracking and aggregation
+    └── training.py      # Training utilities and environment setup
 ```
 
 ## Installation

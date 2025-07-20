@@ -1,0 +1,35 @@
+experiment:
+  name: "walker_run_decqn"
+  seed: 42
+
+environment:
+  domain: "walker"
+  task: "run"
+  bin_size: 3
+  factorised: true
+
+algorithm:
+  name: "DecQN"
+  hidden_size: 512
+  batch_size: 256
+  learning_rate: 0.0001
+  gamma: 0.99
+  tau: 0.005
+  epsilon_start: 1.0
+  epsilon_min: 0.05
+  epsilon_decay: 0.999
+  n_steps: 3
+  grad_clip: 40.0
+  device: "cpu"
+
+training:
+  max_env_steps: 1_000_000
+  update_ratio: 5
+  num_updates: 1
+  eval_frequency: 25000
+  eval_episodes: 5
+  save_frequency: 50000000000
+
+replay_buffer:
+  capacity: 500000
+  burn_in_steps: 10000

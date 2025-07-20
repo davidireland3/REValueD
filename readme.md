@@ -23,7 +23,7 @@ REValueD is designed for environments with high-dimensional discrete action spac
 ## Algorithm Details
 
 ### DecQN (Decoupled Q-Network)
-- Learns separate Q-values for each action dimension
+- Learns separate utility values for each action dimension, which are averaged to a single Q-value
 - Enables efficient learning in factorised action spaces
 - Uses double Q-learning for reduced overestimation bias
 
@@ -31,7 +31,7 @@ REValueD is designed for environments with high-dimensional discrete action spac
 - Extends DecQN with an ensemble of Q-networks
 - Supports three update strategies:
   - **Mean**: Uses ensemble mean for target computation
-  - **REDQ**: Random ensemble distillation Q-learning
+  - **REDQ**: Takes the minimum of a random sample of the ensemble for the target
   - **DecQN**: Independent training of ensemble members
 - Randomised action selection using different ensemble members
 
